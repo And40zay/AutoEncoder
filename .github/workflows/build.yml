@@ -1,0 +1,52 @@
+name: Build Installers
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: neural-encoder-linux.deb
+            jpackage_args: --type deb --linux-shortcut
+          - os: windows-latest
+            artifact: neural-encoder-windows.exe
+            jpackage_args: --type exe --win-shortcut --win-menu
+          - os: macos-latest
+            artifact: neural-encoder-macos.dmg
+            jpackage_args: --type dmg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Build JAR
+        run: |
+          javac *.java
+          echo "Main-Class: EncoderDecoder" > Manifest.txt
+          jar cvfm EncoderDecoder.jar Manifest.txt *.class
+      - name: Build with jpackage
+        run: |
+          jpackage \
+            --input . \
+            --main-jar EncoderDecoder.jar \
+            --main-class EncoderDecoder \
+            --name neural-encoder \
+            --description "Neural network message encoder/decoder" \
+            --vendor "Jake Daniel Mayaka Walker" \
+            ${{ matrix.jpackage_args }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            *.deb
+            *.exe
+            *.dmg
